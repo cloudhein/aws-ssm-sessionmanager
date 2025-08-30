@@ -1,4 +1,4 @@
-### Install SessionManager Plugin
+### Install SessionManager Plugin on your laptop
 ```
 https://docs.aws.amazon.com/systems-manager/latest/userguide/install-plugin-macos-overview.html
 ```
@@ -62,7 +62,7 @@ ip-10-0-253-25
 ```
 $ aws ssm start-session --target i-039a8df4d71a26720
 
-Starting session with SessionId: sai.linnthu@hashicorp.com-6fenrzlcba4qvag3ecg9gnipxi
+Starting session with SessionId: sai@hellocloud.io-6fenrzlcba4qvag3ecg9gnipxi
 $ 
 $ 
 $ ip addr
