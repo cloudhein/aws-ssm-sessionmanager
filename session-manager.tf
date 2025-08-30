@@ -58,17 +58,18 @@ resource "aws_security_group" "session_manager_sg" {
     protocol    = "tcp"
     # it works, but it is less secure: it gives the EC2 instance the ability to reach any IP on the internet, not just AWS SSM endpoints.
     # The recommended practice is least privilege: restrict outbound traffic to only the necessary destination IPs or endpoint security group for SSM connectivity.
-    cidr_blocks = ["0.0.0.0/0"]
+    # cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.vpc_endpoint_sg.id]
     description = "HTTPS outbound for Session Manager"
   }
 
-  egress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTP outbound for package updates"
-  }
+  # egress {
+  #   from_port   = 80
+  #   to_port     = 80
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  #   description = "HTTP outbound for package updates"
+  # }
 
   tags = {
     Name        = "${var.frontend_prefix}-session-manager-sg"
