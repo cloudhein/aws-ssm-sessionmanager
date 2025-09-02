@@ -51,28 +51,52 @@ resource "aws_security_group" "session_manager_sg" {
   description = "Security group for Session Manager access"
   vpc_id      = aws_vpc.frontend_vpc.id
 
-  # Outbound rules for Session Manager
-  egress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    # it works, but it is less secure: it gives the EC2 instance the ability to reach any IP on the internet, not just AWS SSM endpoints.
-    # The recommended practice is least privilege: restrict outbound traffic to only the necessary destination IPs or endpoint security group for SSM connectivity.
-    # cidr_blocks = ["0.0.0.0/0"]
-    security_groups = [aws_security_group.vpc_endpoint_sg.id]
-    description = "HTTPS outbound for Session Manager"
-  }
-
+  # # Outbound rules for Session Manager
   # egress {
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  #   description = "HTTP outbound for package updates"
+  #   from_port = 443
+  #   to_port   = 443
+  #   protocol  = "tcp"
+  #   # it works, but it is less secure: it gives the EC2 instance the ability to reach any IP on the internet, not just AWS SSM endpoints.
+  #   # The recommended practice is least privilege: restrict outbound traffic to only the necessary destination IPs or endpoint security group for SSM connectivity.
+  #   # cidr_blocks = ["0.0.0.0/0"]
+  #   security_groups = [aws_security_group.vpc_endpoint_sg.id]
+  #   description     = "HTTPS outbound for Session Manager"
   # }
+
+  #   egress {
+  #     from_port   = 80
+  #     to_port     = 80
+  #     protocol    = "tcp"
+  #     cidr_blocks = ["0.0.0.0/0"]
+  #     description = "HTTP outbound for package updates"
+  #   }
+
+  #   egress {
+  #     from_port   = 443
+  #     to_port     = 443
+  #     protocol    = "tcp"
+  #     cidr_blocks = ["0.0.0.0/0"]
+  #     description = "HTTPS outbound for package updates"
+  #   }
 
   tags = {
     Name        = "${var.frontend_prefix}-session-manager-sg"
+    environment = var.frontend_environment
+  }
+}
+
+# Egress rule for HTTPS traffic to VPC endpoints (Session Manager)
+resource "aws_vpc_security_group_egress_rule" "session_manager_https_egress" {
+  security_group_id            = aws_security_group.session_manager_sg.id
+  # The recommended practice is least privilege: restrict outbound traffic to only the necessary destination IPs or endpoint security group for SSM connectivity.
+  referenced_security_group_id = aws_security_group.vpc_endpoint_sg.id
+  from_port                    = 443
+  to_port                      = 443
+  ip_protocol                  = "tcp"
+  description                  = "HTTPS outbound for Session Manager to VPC endpoints"
+
+  tags = {
+    Name        = "${var.frontend_prefix}-session-manager-https-egress"
     environment = var.frontend_environment
   }
 }
@@ -83,10 +107,10 @@ resource "aws_security_group" "session_manager_sg" {
 
 # VPC Endpoint for SSM
 resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = aws_vpc.frontend_vpc.id
-  service_name        = "com.amazonaws.${var.region}.ssm"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [
+  vpc_id            = aws_vpc.frontend_vpc.id
+  service_name      = "com.amazonaws.${var.region}.ssm"
+  vpc_endpoint_type = "Interface"
+  subnet_ids = [
     aws_subnet.frontend_private_subnet01.id,
     aws_subnet.frontend_private_subnet02.id,
     aws_subnet.frontend_private_subnet03.id
@@ -102,10 +126,10 @@ resource "aws_vpc_endpoint" "ssm" {
 
 # VPC Endpoint for SSM Messages
 resource "aws_vpc_endpoint" "ssm_messages" {
-  vpc_id              = aws_vpc.frontend_vpc.id
-  service_name        = "com.amazonaws.${var.region}.ssmmessages"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [
+  vpc_id            = aws_vpc.frontend_vpc.id
+  service_name      = "com.amazonaws.${var.region}.ssmmessages"
+  vpc_endpoint_type = "Interface"
+  subnet_ids = [
     aws_subnet.frontend_private_subnet01.id,
     aws_subnet.frontend_private_subnet02.id,
     aws_subnet.frontend_private_subnet03.id
@@ -121,10 +145,10 @@ resource "aws_vpc_endpoint" "ssm_messages" {
 
 # VPC Endpoint for EC2 Messages
 resource "aws_vpc_endpoint" "ec2_messages" {
-  vpc_id              = aws_vpc.frontend_vpc.id
-  service_name        = "com.amazonaws.${var.region}.ec2messages"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [
+  vpc_id            = aws_vpc.frontend_vpc.id
+  service_name      = "com.amazonaws.${var.region}.ec2messages"
+  vpc_endpoint_type = "Interface"
+  subnet_ids = [
     aws_subnet.frontend_private_subnet01.id,
     aws_subnet.frontend_private_subnet02.id,
     aws_subnet.frontend_private_subnet03.id
@@ -144,24 +168,36 @@ resource "aws_security_group" "vpc_endpoint_sg" {
   description = "Security group for VPC endpoints"
   vpc_id      = aws_vpc.frontend_vpc.id
 
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = [var.frontend_vpc_address_space]
-    description = "HTTPS from VPC"
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "All outbound traffic"
-  }
-
   tags = {
     Name        = "${var.frontend_prefix}-vpc-endpoint-sg"
+    environment = var.frontend_environment
+  }
+}
+
+# Ingress rule for HTTPS traffic from VPC
+resource "aws_vpc_security_group_ingress_rule" "vpc_endpoint_https_ingress" {
+  security_group_id = aws_security_group.vpc_endpoint_sg.id
+  cidr_ipv4         = var.frontend_vpc_address_space
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  description       = "HTTPS from VPC for Session Manager"
+
+  tags = {
+    Name        = "${var.frontend_prefix}-vpc-endpoint-https-ingress"
+    environment = var.frontend_environment
+  }
+}
+
+# Egress rule for all outbound traffic (VPC endpoints need this for AWS service communication)
+resource "aws_vpc_security_group_egress_rule" "vpc_endpoint_all_egress" {
+  security_group_id = aws_security_group.vpc_endpoint_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+  description       = "All outbound traffic for VPC endpoint functionality"
+
+  tags = {
+    Name        = "${var.frontend_prefix}-vpc-endpoint-all-egress"
     environment = var.frontend_environment
   }
 }
