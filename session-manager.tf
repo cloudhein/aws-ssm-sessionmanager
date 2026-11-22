@@ -87,7 +87,7 @@ resource "aws_security_group" "session_manager_sg" {
 
 # Egress rule for HTTPS traffic to VPC endpoints (Session Manager)
 resource "aws_vpc_security_group_egress_rule" "session_manager_https_egress" {
-  security_group_id            = aws_security_group.session_manager_sg.id
+  security_group_id = aws_security_group.session_manager_sg.id
   # The recommended practice is least privilege: restrict outbound traffic to only the necessary destination IPs or endpoint security group for SSM connectivity.
   referenced_security_group_id = aws_security_group.vpc_endpoint_sg.id
   from_port                    = 443

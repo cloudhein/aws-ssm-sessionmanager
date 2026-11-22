@@ -13,13 +13,13 @@ output "instance_ids" {
 
 output "session_manager_role_arn" {
   description = "ARN of the Session Manager IAM role"
-  value = aws_iam_role.session_manager_role.arn
+  value       = aws_iam_role.session_manager_role.arn
 }
 
 output "vpc_endpoints" {
   description = "VPC Endpoints for Session Manager"
   value = {
-    ssm         = aws_vpc_endpoint.ssm.id
+    ssm          = aws_vpc_endpoint.ssm.id
     ssm_messages = aws_vpc_endpoint.ssm_messages.id
     ec2_messages = aws_vpc_endpoint.ec2_messages.id
   }

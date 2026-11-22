@@ -3,6 +3,11 @@ variable "region" {
   default     = "ap-southeast-1"
 }
 
+variable "profile" {
+  description = "The AWS CLI profile to use for authentication."
+  default     = "admin-master-harry-console"
+}
+
 #############################################################
 # Frontend VPC Variables
 #############################################################
