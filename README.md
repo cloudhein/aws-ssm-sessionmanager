@@ -107,3 +107,6 @@ $ ip a
 $ hostname
 ip-10-0-255-50
 ```
+
+## Architecture
+![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld.png)
