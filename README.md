@@ -108,6 +108,90 @@ $ hostname
 ip-10-0-255-50
 ```
 
+## Copy files with SCP over Session Manager
+
+Use AWS Systems Manager Session Manager to copy files to a private EC2 instance over SSH. The instance needs to be managed by Systems Manager, with SSM Agent and an SSH server running. Install the AWS CLI and the Session Manager plugin on your local machine. The AWS CLI profile needs permission to start a session on the instance using the `AWS-StartSSHSession` document. The instance security group can keep inbound port 22 closed. [AWS guide to SSH over Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html)
+
+The examples use the `admin-master-harry-console` profile, instance `i-0e4dfa513b086b3a8`, and Region `ap-southeast-1`. Use the instance ID from your Terraform `instance_ids` output if yours differs, and update the Region and profile for your environment.
+
+### 1. Generate an SSH key locally
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -f ~/.ssh/ssm-transfer
+cat ~/.ssh/ssm-transfer.pub
+```
+
+Copy the line from `ssm-transfer.pub`. Keep the private key `ssm-transfer` on your local machine.
+
+### 2. Connect to EC2 using Session Manager
+
+```bash
+aws ssm start-session \
+  --target i-0e4dfa513b086b3a8 \
+  --region ap-southeast-1 \
+  --profile admin-master-harry-console
+```
+
+### 3. Add the public key for `ssm-user`
+
+In the Session Manager shell, run `whoami` to confirm you are `ssm-user`. Then open that user's authorized keys file.
+
+```bash
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+vi ~/.ssh/authorized_keys
+```
+
+Append the public key on its own line and preserve the existing keys. Save the file and set its permissions.
+
+```bash
+chmod 600 ~/.ssh/authorized_keys
+```
+
+### 4. Check the SSH service on the instance
+
+On Ubuntu, check that `ssh` is active and that port 22 is listening.
+
+```bash
+sudo systemctl status ssh --no-pager
+sudo ss -lntp | grep ':22'
+```
+
+If the status shows `disabled` alongside `active (running)`, check for `TriggeredBy: ssh.socket`. Ubuntu can start SSH on demand through that socket. Run `exit` to return to your local shell.
+
+### 5. Add the SSH proxy configuration locally
+
+Open `~/.ssh/config` and append this host block.
+
+```sshconfig
+Host private-ec2
+    HostName ip-10-0-253-176
+    User ssm-user
+    IdentityFile ~/.ssh/ssm-transfer
+    IdentitiesOnly yes
+    ProxyCommand /opt/homebrew/bin/aws ssm start-session --target i-0e4dfa513b086b3a8 --region ap-southeast-1 --profile admin-master-harry-console --document-name AWS-StartSSHSession --parameters portNumber=%p
+```
+
+If your AWS CLI is installed elsewhere, use the path returned by `command -v aws`. The EC2 instance ID in `--target` selects the Session Manager target.
+
+```bash
+chmod 600 ~/.ssh/config ~/.ssh/ssm-transfer
+```
+
+### 6. Test SSH and copy the file
+
+Test the SSH connection first, then exit the SSH session. From your local shell, copy `data.txt` to `ssm-user`'s home directory.
+
+```bash
+ssh private-ec2
+```
+
+```bash
+scp data.txt private-ec2:/home/ssm-user/
+```
+
 ## Architecture
 ![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld-2.png)
 
