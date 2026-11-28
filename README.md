@@ -147,7 +147,7 @@ curl --fail --location --silent --show-error \
 Keep the URL in single quotes. After `curl` succeeds, run `ls -l /tmp/data.txt` to verify the file.
 
 ## Architecture
-![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld-2.png)
+![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld-3.png)
 
 ### Session Manager Register Nodes
 ![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/system-manager-registered-nodes.png)
