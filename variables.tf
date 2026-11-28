@@ -41,3 +41,12 @@ variable "fe_instance_type" {
   description = "Specifies the AWS instance type."
   default     = "t2.micro"
 }
+
+##############################################################
+# Artifacts Bucket Variable
+##############################################################
+variable "artifacts_bucket" {
+  description = "Existing S3 bucket containing the artifacts for the ssm instances."
+  type        = string
+  default     = "frontend-ssm-artifacts-object-storage"
+}

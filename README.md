@@ -107,90 +107,44 @@ $ ip a
 $ hostname
 ip-10-0-255-50
 ```
+## Download files from S3 on private EC2 instances
 
-## Copy files with SCP over Session Manager
+SCP over Session Manager needs an SSH server and SSH key management. For S3 downloads, Session Manager gives you a shell on the private EC2 instance and the instance fetches the file directly from S3 over HTTPS. This removes the need to install or maintain SSH keys for these transfers. Both methods can keep the instance's inbound ports closed. [AWS guidance on SSH over Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html)
 
-Use AWS Systems Manager Session Manager to copy files to a private EC2 instance over SSH. The instance needs to be managed by Systems Manager, with SSM Agent and an SSH server running. Install the AWS CLI and the Session Manager plugin on your local machine. The AWS CLI profile needs permission to start a session on the instance using the `AWS-StartSSHSession` document. The instance security group can keep inbound port 22 closed. [AWS guide to SSH over Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-getting-started-enable-ssh-connections.html)
+### Network and access controls
 
-The examples use the `admin-master-harry-console` profile, instance `i-0e4dfa513b086b3a8`, and Region `ap-southeast-1`. Use the instance ID from your Terraform `instance_ids` output if yours differs, and update the Region and profile for your environment.
+- [session-manager.tf](session-manager.tf) allows outbound TCP 443 from the instance security group to the regional S3 prefix list. The existing Session Manager egress rules let you open the shell.
+- [fe-vpc.tf](fe-vpc.tf) associates the S3 gateway endpoint with the three private route tables. AWS adds the S3 prefix-list route to each associated table. The endpoint and artifacts bucket must be in the same Region. [AWS gateway endpoint documentation](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html)
+- The endpoint policy allows only `s3:GetObject` for objects in the configured artifacts bucket. [policy.tf](policy.tf) grants those downloads over HTTPS when the request comes through this gateway endpoint, using `aws:SourceVpce` and `aws:SecureTransport`.
 
-### 1. Generate an SSH key locally
+The bucket policy's endpoint condition limits that grant. A separate IAM grant can still authorize downloads from another network. To enforce endpoint-only downloads across all grants, use an explicit `Deny` for `s3:GetObject` requests that come from outside the approved endpoint. [AWS bucket policy examples](https://docs.aws.amazon.com/AmazonS3/latest/userguide/example-bucket-policies-vpc-endpoint.html)
 
-```bash
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-ssh-keygen -t ed25519 -f ~/.ssh/ssm-transfer
-cat ~/.ssh/ssm-transfer.pub
-```
+### 1. Generate a presigned URL locally
 
-Copy the line from `ssm-transfer.pub`. Keep the private key `ssm-transfer` on your local machine.
-
-### 2. Connect to EC2 using Session Manager
+From a machine with the AWS CLI and permission to read the object, run:
 
 ```bash
-aws ssm start-session \
-  --target i-0e4dfa513b086b3a8 \
+aws s3 presign \
+  s3://frontend-ssm-artifacts-object-storage/document.txt \
+  --expires-in 3600 \
   --region ap-southeast-1 \
   --profile admin-master-harry-console
 ```
 
-### 3. Add the public key for `ssm-user`
+The command prints a download URL for `document.txt` that is valid for up to one hour. Temporary signing credentials can expire sooner. Keep the full URL private while it is valid. [AWS presigned URL documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html)
 
-In the Session Manager shell, run `whoami` to confirm you are `ssm-user`. Then open that user's authorized keys file.
+### 2. Download the file from the private instance
 
-```bash
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-vi ~/.ssh/authorized_keys
-```
-
-Append the public key on its own line and preserve the existing keys. Save the file and set its permissions.
+Open a Session Manager shell on the instance, then run `curl` with the full URL from the previous step. The instance only needs `curl` and network access to S3 for this download. The AWS CLI and signing credentials stay on the machine that generated the link.
 
 ```bash
-chmod 600 ~/.ssh/authorized_keys
+curl --fail --location --silent --show-error \
+  --connect-timeout 5 --max-time 60 \
+  --output /tmp/data.txt \
+  'PASTE_ENTIRE_PRESIGNED_URL_HERE'
 ```
 
-### 4. Check the SSH service on the instance
-
-On Ubuntu, check that `ssh` is active and that port 22 is listening.
-
-```bash
-sudo systemctl status ssh --no-pager
-sudo ss -lntp | grep ':22'
-```
-
-If the status shows `disabled` alongside `active (running)`, check for `TriggeredBy: ssh.socket`. Ubuntu can start SSH on demand through that socket. Run `exit` to return to your local shell.
-
-### 5. Add the SSH proxy configuration locally
-
-Open `~/.ssh/config` and append this host block.
-
-```sshconfig
-Host private-ec2
-    HostName ip-10-0-253-176
-    User ssm-user
-    IdentityFile ~/.ssh/ssm-transfer
-    IdentitiesOnly yes
-    ProxyCommand /opt/homebrew/bin/aws ssm start-session --target i-0e4dfa513b086b3a8 --region ap-southeast-1 --profile admin-master-harry-console --document-name AWS-StartSSHSession --parameters portNumber=%p
-```
-
-If your AWS CLI is installed elsewhere, use the path returned by `command -v aws`. The EC2 instance ID in `--target` selects the Session Manager target.
-
-```bash
-chmod 600 ~/.ssh/config ~/.ssh/ssm-transfer
-```
-
-### 6. Test SSH and copy the file
-
-Test the SSH connection first, then exit the SSH session. From your local shell, copy `data.txt` to `ssm-user`'s home directory.
-
-```bash
-ssh private-ec2
-```
-
-```bash
-scp data.txt private-ec2:/home/ssm-user/
-```
+Keep the URL in single quotes. After `curl` succeeds, run `ls -l /tmp/data.txt` to verify the file.
 
 ## Architecture
 ![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld-2.png)

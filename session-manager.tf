@@ -101,6 +101,15 @@ resource "aws_vpc_security_group_egress_rule" "session_manager_https_egress" {
   }
 }
 
+resource "aws_vpc_security_group_egress_rule" "artifacts_s3_https_egress" {
+  security_group_id = aws_security_group.session_manager_sg.id
+  prefix_list_id    = aws_vpc_endpoint.s3.prefix_list_id
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+  description       = "HTTPS outbound for S3 artifact downloads"
+}
+
 #############################################################
 # VPC Endpoints for Session Manager
 #############################################################

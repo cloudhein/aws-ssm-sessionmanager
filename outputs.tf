@@ -17,11 +17,12 @@ output "session_manager_role_arn" {
 }
 
 output "vpc_endpoints" {
-  description = "VPC Endpoints for Session Manager"
+  description = "VPC endpoint IDs for Session Manager and S3 artifact downloads"
   value = {
     ssm          = aws_vpc_endpoint.ssm.id
     ssm_messages = aws_vpc_endpoint.ssm_messages.id
     ec2_messages = aws_vpc_endpoint.ec2_messages.id
+    s3           = aws_vpc_endpoint.s3.id
   }
 }
 
@@ -34,4 +35,9 @@ output "session_manager_commands" {
     instance02 = "aws ssm start-session --target ${aws_instance.frontend_private_instance02.id}"
     instance03 = "aws ssm start-session --target ${aws_instance.frontend_private_instance03.id}"
   }
+}
+
+output "artifacts_bucket" {
+  description = "Name of the S3 bucket used for artifact downloads"
+  value       = var.artifacts_bucket
 }
