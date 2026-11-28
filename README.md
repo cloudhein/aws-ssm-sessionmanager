@@ -109,7 +109,7 @@ ip-10-0-255-50
 ```
 
 ## Architecture
-![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld.png)
+![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/aws-ssm-manager-vpc-endpoint-lld-2.png)
 
 ### Session Manager Register Nodes
 ![Detailed architecture of the secure mgmt with SSM through VPC endpoints](assets/system-manager-registered-nodes.png)
